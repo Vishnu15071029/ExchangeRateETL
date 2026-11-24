@@ -11,6 +11,8 @@ try:
     response.raise_for_status()
 
     data = response.json()
+    if not data:
+        raise ValueError("The API returned no exchange-rate records.")
 
     for record in data:
         if record["quote"] == "INR":
