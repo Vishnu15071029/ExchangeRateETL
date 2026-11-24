@@ -1,5 +1,7 @@
 import logging
 import os
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
 import pyodbc
 import requests
@@ -20,6 +22,34 @@ API_PARAMS = {
 }
 
 
+def validate_records(records):
+    required_fields = {"date", "base", "quote", "rate"}
+
+    for row_number, record in enumerate(records, start=1):
+        missing_fields = required_fields - record.keys()
+        if missing_fields:
+            raise ValueError(
+                f"Record {row_number} is missing fields: {missing_fields}"
+            )
+
+        try:
+            date.fromisoformat(record["date"])
+            rate = Decimal(str(record["rate"]))
+        except (TypeError, ValueError, InvalidOperation) as error:
+            raise ValueError(
+                f"Record {row_number} has an invalid date or rate."
+            ) from error
+
+        if not isinstance(record["base"], str) or len(record["base"]) != 3:
+            raise ValueError(f"Record {row_number} has an invalid base currency.")
+
+        if not isinstance(record["quote"], str) or len(record["quote"]) != 3:
+            raise ValueError(f"Record {row_number} has an invalid quote currency.")
+
+        if not rate.is_finite() or rate <= 0:
+            raise ValueError(f"Record {row_number} has an invalid exchange rate.")
+
+
 def main():
     logger.info("Starting exchange-rate pipeline")
 
@@ -36,6 +66,9 @@ def main():
 
     if not records:
         raise ValueError("The API returned no exchange-rate records.")
+
+    validate_records(records)
+    logger.info("Validated all %d exchange-rate records", len(records))
 
     connection = pyodbc.connect(connection_string, timeout=5)
 
