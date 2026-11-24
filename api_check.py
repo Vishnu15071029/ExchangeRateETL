@@ -10,4 +10,8 @@ response = requests.get(url, params=params, timeout=10)
 response.raise_for_status()
 
 data = response.json()
-print(data)
+for record in data:
+    print(
+        f"{record['date']}: 1 {record['base']} = "
+        f"{record['rate']} {record['quote']}"
+    )
