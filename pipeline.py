@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -21,7 +22,7 @@ API_PARAMS = {
     "quotes": "INR,EUR,GBP",
 }
 
-
+MAX_RETRIES = 3
 def validate_records(records):
     required_fields = {"date", "base", "quote", "rate"}
 
@@ -59,8 +60,24 @@ def main():
     if not connection_string:
         raise ValueError("SQL_CONNECTION_STRING is missing. Check the .env file.")
 
-    response = requests.get(API_URL, params=API_PARAMS, timeout=10)
-    response.raise_for_status()
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = requests.get(API_URL, params=API_PARAMS, timeout=10)
+            response.raise_for_status()
+            break
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            if attempt == MAX_RETRIES:
+                logger.exception("API request failed after %d attempts", MAX_RETRIES)
+                raise
+
+            wait_seconds = 2 ** (attempt - 1)
+            logger.warning(
+                "API connection failed. Retrying in %d seconds (attempt %d of %d)",
+                wait_seconds,
+                attempt,
+                MAX_RETRIES,
+            )
+            time.sleep(wait_seconds)
     records = response.json()
     logger.info("Received %d exchange-rate records from the API", len(records))
 
