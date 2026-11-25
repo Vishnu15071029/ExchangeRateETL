@@ -51,6 +51,20 @@ def validate_records(records):
             raise ValueError(f"Record {row_number} has an invalid exchange rate.")
 
 
+def transform_records(records):
+    transformed = []
+    for record in records:
+        transformed.append(
+            {
+                "date": date.fromisoformat(record["date"]),
+                "base": record["base"].upper(),
+                "quote": record["quote"].upper(),
+                "rate": Decimal(str(record["rate"])),
+            }
+        )
+    return transformed
+
+
 def main():
     logger.info("Starting exchange-rate pipeline")
 
@@ -86,6 +100,9 @@ def main():
 
     validate_records(records)
     logger.info("Validated all %d exchange-rate records", len(records))
+
+    records = transform_records(records)
+    logger.info("Transformed %d exchange-rate records", len(records))
 
     connection = pyodbc.connect(connection_string, timeout=5)
 
